@@ -7,29 +7,40 @@ public class PlayerControllerX : MonoBehaviour
     private Rigidbody playerRb;
     private float speed = 500;
     private GameObject focalPoint;
+    private float normalStrength = 10; // how hard to hit enemy without powerup
+    private float powerupStrength = 25; // how hard to hit enemy with powerup
+    private bool speedBoostAvailable = true;
+    private float speedBoostResetTimer = 15;
+    private float speedBoostDuration = 3;
 
     public bool hasPowerup;
     public GameObject powerupIndicator;
     public int powerUpDuration = 5;
+    public ParticleSystem dirtSplatter;
 
-    private float normalStrength = 10; // how hard to hit enemy without powerup
-    private float powerupStrength = 25; // how hard to hit enemy with powerup
-    
     void Start()
     {
         playerRb = GetComponent<Rigidbody>();
         focalPoint = GameObject.Find("Focal Point");
+        dirtSplatter.Stop();
     }
 
     void Update()
     {
         // Add force to player in direction of the focal point (and camera)
         float verticalInput = Input.GetAxis("Vertical");
-        playerRb.AddForce(focalPoint.transform.forward * verticalInput * speed * Time.deltaTime); 
+        playerRb.AddForce(focalPoint.transform.forward * verticalInput * speed * Time.deltaTime);
 
         // Set powerup indicator position to beneath player
         powerupIndicator.transform.position = transform.position + new Vector3(0, -0.6f, 0);
 
+        // Speed boost when player presses Space
+        if (Input.GetKeyDown(KeyCode.Space) && speedBoostAvailable)
+        {
+            Debug.Log("Boosting Speed");
+            speedBoostAvailable = false;
+            StartCoroutine(SpeedBoost());
+        }
     }
 
     // If Player collides with powerup, activate powerup
@@ -40,6 +51,7 @@ public class PlayerControllerX : MonoBehaviour
             Destroy(other.gameObject);
             hasPowerup = true;
             powerupIndicator.SetActive(true);
+            StartCoroutine(PowerupCooldown());
         }
     }
 
@@ -51,27 +63,34 @@ public class PlayerControllerX : MonoBehaviour
         powerupIndicator.SetActive(false);
     }
 
+    IEnumerator SpeedBoost()
+    {
+        var tempSpeed = speed;
+        speed = speed * 3;
+        dirtSplatter.Play();
+        yield return new WaitForSeconds(speedBoostDuration);
+        speed = tempSpeed;
+        dirtSplatter.Stop();
+        yield return new WaitForSeconds(speedBoostResetTimer - speedBoostDuration);
+        speedBoostAvailable = true;
+    }
+
     // If Player collides with enemy
     private void OnCollisionEnter(Collision other)
     {
         if (other.gameObject.CompareTag("Enemy"))
         {
             Rigidbody enemyRigidbody = other.gameObject.GetComponent<Rigidbody>();
-            Vector3 awayFromPlayer =  transform.position - other.gameObject.transform.position; 
-           
+            Vector3 awayFromPlayer = other.gameObject.transform.position - transform.position;
+
             if (hasPowerup) // if have powerup hit enemy with powerup force
             {
                 enemyRigidbody.AddForce(awayFromPlayer * powerupStrength, ForceMode.Impulse);
             }
-            else // if no powerup, hit enemy with normal strength 
+            else // if no powerup, hit enemy with normal strength
             {
                 enemyRigidbody.AddForce(awayFromPlayer * normalStrength, ForceMode.Impulse);
             }
-
-
         }
     }
-
-
-
 }
